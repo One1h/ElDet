@@ -1,0 +1,11 @@
+torc>=1.7.0
+opencv-python
+Cython
+numba
+progress
+matplotlib
+easydict
+scipy
+numpy
+tensorboardX
+tqdm

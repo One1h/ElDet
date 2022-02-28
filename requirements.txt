@@ -1,10 +1,11 @@
 opencv-python
 Cython
+numpy
 numba
 progress
 matplotlib
 easydict
 scipy
-numpy
 tensorboardX
 tqdm
+pycocotools

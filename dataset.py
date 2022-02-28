@@ -21,17 +21,13 @@ class ctDataset(data.Dataset):
     std = np.array([0.3001546018824507, 0.28620901391179554, 0.3014112676161966], dtype=np.float32).reshape(1, 1, 3)
 
     def __init__(self, data_dir='./data', split='train'):
-        self.data_dir = os.path.join(data_dir, 'random_divide')
-        # self.data_dir = os.path.join(data_dir, 'FDDB')
+        self.data_dir = data_dir
         self.split = split
-
         try:
             if split == 'train':
                 self.annot_path = os.path.join(self.data_dir, 'annotations', 'train.json')
-                # self.annot_path = os.path.join(self.data_dir, 'FDDB_coco/ellipse', 'fddb_train.json') # FDDB
             elif split == 'val':
                 self.annot_path = os.path.join(self.data_dir, 'annotations', 'test.json')
-                # self.annot_path = os.path.join(self.data_dir, 'FDDB_coco/ellipse', 'fddb_val.json') # FDDB
         except:
             print('No any data!')
 
@@ -59,13 +55,12 @@ class ctDataset(data.Dataset):
         img_id = self.images[index]
         file_name = self.coco.loadImgs(ids=[img_id])[0]['file_name']
         img_path = os.path.join(self.data_dir, 'images', file_name)
-        # img_path = os.path.join(self.data_dir, file_name) # FDDB
         ann_ids = self.coco.getAnnIds(imgIds=[img_id])
         anns = self.coco.loadAnns(ids=ann_ids)
         num_objs = min(len(anns), self.max_objs)
         img = cv2.imread(img_path)
         height, width = img.shape[0], img.shape[1]
-        c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)  # 中心点
+        c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)
 
         keep_res = False  #
         if keep_res:
@@ -82,12 +77,8 @@ class ctDataset(data.Dataset):
         # Augment
         inp = grayscale(inp, 0.5)
         inp = get_edge(inp, prob=0.5, method='Laplacian')
-        # cv2.imshow('', inp)
-        # cv2.waitKey()
 
         inp = (inp.astype(np.float32) / 255.)
-        # inp_show = inp
-        # inp_show = cv2.resize(inp_show, (128, 128), inp_show)
 
         # 归一化
         inp = (inp - self.mean) / self.std
@@ -108,17 +99,13 @@ class ctDataset(data.Dataset):
         mask = np.zeros((num_classes, 128, 128), dtype=np.float32)
 
         draw_gaussian = draw_umich_gaussian
-        for k in range(num_objs):  # num_objs图中标记物数目
-            ann = anns[k]  # 第几个标记物的标签
+        for k in range(num_objs):
+            ann = anns[k]
             bbox = ann['bbox']  # x,y,angle,a,b
             cls_id = int(self.cat_ids[ann['category_id']])
 
             # 数据扩充和resize之后的变换
-            bbox[:2] = affine_transform(bbox[:2], trans_output)  # 将box坐标转换到 128*128内的坐标
-
-            # bbox[3:] = affine_transform(bbox[3:], trans_output, bbox[2], mode='ab')  # FDDB
-            # bbox[3] = np.clip(bbox[3], 0, output_w - 1)  # FDDB
-            # bbox[4] = np.clip(bbox[4], 0, output_h - 1)  # FDDB
+            bbox[:2] = affine_transform(bbox[:2], trans_output)
 
             bbox[2:4] = affine_transform(bbox[2:4], trans_output, bbox[4], mode='ab')
             bbox[0] = np.clip(bbox[0], 0, output_w - 1)
@@ -127,7 +114,6 @@ class ctDataset(data.Dataset):
             bbox[3] = np.clip(bbox[3], 0, output_h - 1)
 
             a, b, an = bbox[2], bbox[3], bbox[4]
-            # a, b, an = bbox[3], bbox[4], bbox[2]    #FDDB
             if a > 0 and b > 0:
                 radius = gaussian_radius((math.ceil(b * 2.0), math.ceil(a * 2.0)))
                 radius = max(0, int(radius))
@@ -143,14 +129,9 @@ class ctDataset(data.Dataset):
                 cv2.ellipse(mask[cls_id], (int(ct[0]), int(ct[1])), (int(ab[k][0]), int(ab[k][1])), int(ang[k][0] - 90),
                             0, 360, 1, -1)
 
-                # cv2.ellipse(inp_show, (int(ct[0]), int(ct[1])), (int(ab[k][0]), int(ab[k][1])), int(ang[k][0] - 90), 0,
-                #             360, (0, 0, 255))
-                # cv2.imshow('', mask[cls_id])
-                # cv2.waitKey()
 
         # inp: 512*512 input | hm: heatmap class | reg_mask: obj data mask | ind: center pixel index
         # wh: width & height | ang: angle
-        # ret = {'input': inp, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'ab': ab, 'ang': ang}
         ret = {'input': inp, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'ab': ab, 'ang': ang, 'mask': mask}
         reg_offset_flag = True  #
         if reg_offset_flag:
@@ -164,8 +145,8 @@ def get_edge(img, prob=0.5, method='Laplacian'):
         img = cv2.GaussianBlur(img, (5, 5), 0)
         if method == 'Laplacian':
             img = cv2.Laplacian(img, -1, ksize=5)
-        # if method == 'Canny':
-        #     img = cv2.Canny(img)
+        if method == 'Canny':
+            img = cv2.Canny(img)
         if method == 'Sobel':
             img = cv2.Sobel(img, -1, 0, 0)
         if method == 'AdaptiveThreshold':
@@ -180,42 +161,6 @@ def grayscale(img, prob=0.5):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     return img
-
-
-def lighting_(data_rng, image, alphastd, eigval, eigvec):
-    alpha = data_rng.normal(scale=alphastd, size=(3,))
-    image += np.dot(eigvec, eigval * alpha)
-
-
-def blend_(alpha, image1, image2):
-    image1 *= alpha
-    image2 *= (1 - alpha)
-    image1 += image2
-
-
-def saturation_(data_rng, image, gs, gs_mean, var):
-    alpha = 1. + data_rng.uniform(low=-var, high=var)
-    blend_(alpha, image, gs[:, :, None])
-
-
-def brightness_(data_rng, image, gs, gs_mean, var):
-    alpha = 1. + data_rng.uniform(low=-var, high=var)
-    image *= alpha
-
-
-def contrast_(data_rng, image, gs, gs_mean, var):
-    alpha = 1. + data_rng.uniform(low=-var, high=var)
-    blend_(alpha, image, gs_mean)
-
-
-def color_aug(data_rng, image, eig_val, eig_vec):
-    functions = [brightness_, contrast_, saturation_]
-    random.shuffle(functions)
-    gs = grayscale(image)
-    gs_mean = gs.mean()
-    for f in functions:
-        f(data_rng, image, gs, gs_mean, 0.4)
-    lighting_(data_rng, image, 0.1, eig_val, eig_vec)
 
 
 def get_3rd_point(a, b):
@@ -287,22 +232,6 @@ def draw_umich_gaussian(heatmap, center, radius, k=1):
     return heatmap
 
 
-def ellipse_location(x, y, a, b, ang, m, n):
-    ang = np.deg2rad(ang)
-    cosA = np.cos(ang)
-    sinA = np.sin(ang)
-    return ((m - x) * cosA + (n - y) * sinA) ** 2 / a ** 2 + ((n - y) * cosA + (m - x) * sinA) ** 2 / b ** 2
-
-
-def draw_ellipse_gaussian(heatmap, x, y, a, b, ang):
-    for m in range(heatmap.shape[1]):
-        for n in range(heatmap.shape[0]):
-            pix = 1 - ellipse_location(x, y, a, b, ang, m, n)
-            if pix > heatmap[n][m] and pix > 0:
-                heatmap[n][m] = pix
-    return heatmap
-
-
 def affine_transform(pt, t, angle=0, mode='xy'):
     if mode == 'xy':
         new_pt = np.array([pt[0], pt[1], 1.], dtype=np.float32).T
@@ -343,41 +272,3 @@ def gaussian_radius(det_size, min_overlap=0.7):
     sq3 = np.sqrt(b3 ** 2 - 4 * a3 * c3)
     r3 = (b3 + sq3) / 2
     return min(r1, r2, r3)
-
-
-def draw_dense_reg(regmap, heatmap, center, value, radius, is_offset=False):
-    diameter = 2 * radius + 1
-    gaussian = gaussian2D((diameter, diameter), sigma=diameter / 6)
-    value = np.array(value, dtype=np.float32).reshape(-1, 1, 1)
-    dim = value.shape[0]
-    reg = np.ones((dim, diameter * 2 + 1, diameter * 2 + 1), dtype=np.float32) * value
-    if is_offset and dim == 2:
-        delta = np.arange(diameter * 2 + 1) - radius
-        reg[0] = reg[0] - delta.reshape(1, -1)
-        reg[1] = reg[1] - delta.reshape(-1, 1)
-
-    x, y = int(center[0]), int(center[1])
-
-    height, width = heatmap.shape[0:2]
-
-    left, right = min(x, radius), min(width - x, radius + 1)
-    top, bottom = min(y, radius), min(height - y, radius + 1)
-
-    masked_heatmap = heatmap[y - top:y + bottom, x - left:x + right]
-    masked_regmap = regmap[:, y - top:y + bottom, x - left:x + right]
-    masked_gaussian = gaussian[radius - top:radius + bottom,
-                      radius - left:radius + right]
-    masked_reg = reg[:, radius - top:radius + bottom,
-                 radius - left:radius + right]
-    if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0:  # TODO debug
-        idx = (masked_gaussian >= masked_heatmap).reshape(1, masked_gaussian.shape[0], masked_gaussian.shape[1])
-        masked_regmap = (1 - idx) * masked_regmap + idx * masked_reg
-    regmap[:, y - top:y + bottom, x - left:x + right] = masked_regmap
-    return regmap
-
-
-def get_border(border, size):
-    i = 1
-    while size - border // i <= border // i:
-        i *= 2
-    return border // i

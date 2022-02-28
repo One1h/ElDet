@@ -17,7 +17,6 @@ We propose an anchor-free general ellipse object detector that can better detect
 1. Use the requirements.txt to build the basic environment;
 2. [DCNv2](https://github.com/jinfagang/DCNv2_latest.git).
   
-    make sure your CUDA == 10.2
     ```bash
     cd DCNv2
     sh maks.sh

@@ -10,8 +10,12 @@ We propose an Anchor-free general ellipse object detector that can better detect
 <img src="/imgs/FDDB.jpg">
 
 ## Environment configuration
-1. Use the requirements.txt The basic environment;
-2. DCNv2.
+- python>=3.6
+- torch>=1.7.0
+- *others see requirements.txt*
+
+1. Use the requirements.txt build the basic environment;
+2. [DCNv2](https://github.com/jinfagang/DCNv2_latest.git).
 
 ## Data format
 We adapt **COCO** format and **bbox = [cx, cy, a, b, theta]**, where *cx, cy* are center point coordinates, *a, b* are major axis and minor axis of ellipse, *theta*\in (-90, 90] is rotation angle of ellipse.

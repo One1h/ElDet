@@ -12,3 +12,6 @@ We propose an Anchor-free general ellipse object detector that can better detect
 ## Environment configuration
 1. Use the requirements.txt The basic environment;
 2. DCNv2.
+
+## Data format
+We adapt **COCO** format and **bbox = [cx, cy, a, b, theta]**, where *cx, cy* are center point coordinates, *a, b* are major axis and minor axis of ellipse, *theta*\in (-90, 90] is rotation angle of ellipse.

@@ -1,12 +1,12 @@
 # ElDet
-We propose an Anchor-free general ellipse object detector that can better detect ellipse objects of any class based on object shape information, and can be applied to downstream tasks such as face detection with a few modifications.
+We propose an anchor-free general ellipse object detector that can better detect ellipse objects of any class based on object shape information, and can be applied to downstream tasks such as face detection with a few modifications.
 <img src="/imgs/overview.jpg">
 
 ## Detection results
-### GED dataset
+### 1. GED dataset
 <img src="/imgs/GED.jpg">
 
-### FDDB dataset
+### 2. FDDB dataset
 <img src="/imgs/FDDB.jpg">
 
 ## Environment configuration

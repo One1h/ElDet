@@ -30,7 +30,7 @@ We use [VIA](https://www.robots.ox.ac.uk/~vgg/software/via/) to make the labels,
 *data_process.py* is a routine for format transformation.
 
 ### Data format
-We adapt **COCO** format and **bbox = \[cx, cy, a, b, $\theta$]**, where *cx, cy* are center point coordinates, *a, b* are major axis and minor axis of ellipse, *theta* $\in$ (-90, 90] is rotation angle of ellipse.
+We adapt **COCO** format and **bbox = \[cx, cy, a, b, θ]**, where *cx, cy* are center point coordinates, *a, b* are major axis and minor axis of ellipse, *θ* ∈(-90, 90] is rotation angle of ellipse.
 
 ### Data folder format
 ```

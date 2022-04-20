@@ -19,7 +19,7 @@ We propose an anchor-free general ellipse object detector that can better detect
   
     ```bash
     cd DCNv2
-    sh maks.sh
+    sh make.sh
     ```
     
 

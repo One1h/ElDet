@@ -15,12 +15,13 @@ We propose an anchor-free general ellipse object detector that can better detect
 - *others see requirements.txt*
 
 1. Use the requirements.txt to build the basic environment;
-2. [DCNv2](https://github.com/jinfagang/DCNv2_latest.git).
+2. [DCNv2](https://github.com/jinfagang/DCNv2_latest.git)
   
     ```bash
     cd DCNv2
     sh make.sh
     ```
+3. move the folder *./DCNv2/build* to *./dcn*.
     
 
 ## Data

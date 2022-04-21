@@ -21,7 +21,7 @@ We propose an anchor-free general ellipse object detector that can better detect
     cd DCNv2
     sh make.sh
     ```
-3. Move the folder *./DCNv2/build* to *./dcn*.
+3. Copy the folder *./DCNv2/build* to *./dcn*.
     
 
 ## Data

@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Jan  4 18:11:15 2020
-
-@author: Lim
-"""
-
 import os
 import cv2
 import math

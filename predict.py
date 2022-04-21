@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jan  6 22:20:07 2020
-
-@author: Lim
-"""
 import os
 import cv2
 import math

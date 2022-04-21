@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Mar 18 15:19:02 2020
-
-@author: Lim
-"""
 import os
 import cv2
 import time

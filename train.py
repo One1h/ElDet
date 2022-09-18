@@ -10,19 +10,20 @@ import random
 from tensorboardX import SummaryWriter
 
 from backbone.dlanet_dcn import DlaNet
+from backbone.dlanet_dcn import MyNet
 
 
 def parse_opt():
     parser = argparse.ArgumentParser()
     # base
-    parser.add_argument('--data', type=str, default='data/GED', help='data folder path')
+    parser.add_argument('--data', type=str, default='../data/GED', help='data folder path')
     parser.add_argument('--save_path', type=str, default='results/train', help='save path')
     parser.add_argument('--epoch', type=int, default=150, help='number of epoch')
     parser.add_argument('--use_gpu', type=bool, default=True, help='use GPU or not')
 
     # train parameters
-    parser.add_argument('--batch_size', type=int, default=4, help='train batch size')
-    parser.add_argument('--val_batch_size', type=int, default=2, help='val batch size')
+    parser.add_argument('--batch_size', type=int, default=2, help='train batch size')
+    parser.add_argument('--val_batch_size', type=int, default=1, help='val batch size')
     parser.add_argument('--lr', type=float, default=1.25e-4, help='learning rate')
     parser.add_argument('--eps', type=float, default=1e-8, help='epsilon')
     parser.add_argument('--w_hm', type=float, default=1, help='weight of heatmap loss')
@@ -51,7 +52,8 @@ def train(opt):
     write = SummaryWriter(save_path)
     # seed_torch()
 
-    model = DlaNet(34)
+    # model = DlaNet(34)
+    model = MyNet(34)
     loss_weight = {'hm_weight': opt.w_hm, 'ab_weight': opt.w_ab, 'ang_weight': opt.w_ang, 'reg_weight': opt.w_reg,
                    'iou_weight': opt.w_iou, 'mask_weight': opt.w_mask}
     criterion = CtdetLoss(loss_weight)
@@ -88,7 +90,7 @@ def train(opt):
         for i, sample in enumerate(train_loader):
             for k in sample:
                 sample[k] = sample[k].to(device=device, non_blocking=True)
-            pred = model(sample['input'])
+            pred = model(sample['input'], True)
 
             loss, loss_show = criterion(pred, sample)
             total_loss += loss.item()
@@ -103,6 +105,7 @@ def train(opt):
             write.add_scalar('reg Loss', loss_show[3], global_step=epoch * len(train_loader) + i)
             write.add_scalar('iou Loss', loss_show[4], global_step=epoch * len(train_loader) + i)
             write.add_scalar('mask Loss', loss_show[5], global_step=epoch * len(train_loader) + i)
+            write.add_scalar('weight Loss', loss_show[6], global_step=epoch * len(train_loader) + i)
             write.add_image('train_mask', pred['mask'][0].sigmoid(), global_step=epoch * len(train_loader) + i)
 
             pbar_dict['Loss'] = loss.item()
@@ -128,7 +131,6 @@ def train(opt):
             write.add_image('val_mask', pred['mask'][0].sigmoid(), global_step=epoch + 1)
 
         validation_loss /= len(val_loader)
-
         write.add_scalar('val Loss', validation_loss, global_step=epoch + 1)
 
         # save model
@@ -137,6 +139,8 @@ def train(opt):
             print('* Best test loss %.5f' % best_test_loss)
             torch.save(model.state_dict(), os.path.join(save_path, 'best.pth'))
 
+        # if (epoch + 1) % 10 == 0:
+        #     torch.save(model.state_dict(), os.path.join(save_path, 'epoch_{}.pth'.format(epoch+1)))
         torch.save(model.state_dict(), os.path.join(save_path, 'last.pth'))
 
 

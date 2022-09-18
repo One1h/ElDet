@@ -1,17 +1,15 @@
 import os
 import cv2
-import math
 import time
 import torch
 import numpy as np
 import torch.nn as nn
-from backbone.dlanet_dcn import DlaNet
-from Loss import _gather_feat
-from dataset import get_affine_transform
-from Loss import _transpose_and_gather_feat
 import pycocotools.coco as coco
-from dataset import get_edge
 
+
+from backbone.dlanet_dcn import DlaNet
+from Loss import _gather_feat, _transpose_and_gather_feat
+from dataset import get_affine_transform, get_edge
 
 
 def draw(img, result):
@@ -38,13 +36,7 @@ def pre_process(image):
     trans_input = get_affine_transform(c, s, 0, [inp_width, inp_height])
     inp_image = cv2.warpAffine(image, trans_input, (inp_width, inp_height), flags=cv2.INTER_LINEAR)
 
-    mean = np.array([0.5194416012442385, 0.5378052387430711, 0.533462090585746],
-                    dtype=np.float32).reshape(1, 1, 3)
-    std = np.array([0.3001546018824507, 0.28620901391179554, 0.3014112676161966],
-                   dtype=np.float32).reshape(1, 1, 3)
-
-    inp_image = ((inp_image / 255. - mean) / std).astype(np.float32)
-
+    inp_image = (inp_image / 255.).astype(np.float32)
     images = inp_image.transpose(2, 0, 1).reshape(1, 3, inp_height, inp_width)  # 三维reshape到4维，（1，3，512，512）
 
     images = torch.from_numpy(images)
@@ -95,12 +87,6 @@ def ctdet_decode(heat, ab, ang, reg=None, K=100):
     ang = _transpose_and_gather_feat(ang, inds)
     ang = ang.view(batch, K, 1)
 
-    # ang = ang.view(batch, K, 8)
-    # ang = torch.sigmoid(ang)
-    # ang_oct = torch.zeros(batch, K, 1).cuda()
-    # oct = angle_label_decode(np.round(torch.sigmoid(ang[0]).cpu().detach().numpy()), 180, 180 / 256., mode=1) * -1
-    # ang_oct[0] = torch.Tensor([oct]).cuda().permute(1, 0)
-    # ang = ang_oct
 
     clses = clses.view(batch, K, 1).float()
     scores = scores.view(batch, K, 1)
@@ -109,7 +95,6 @@ def ctdet_decode(heat, ab, ang, reg=None, K=100):
                         ab[..., 0:1],
                         ab[..., 1:2],
                         ang - 90], dim=2)
-    # 90 + ang], dim=2)
     detections = torch.cat([bboxes, scores, clses], dim=2)
     return detections
 
@@ -117,15 +102,10 @@ def ctdet_decode(heat, ab, ang, reg=None, K=100):
 def process(output):
     with torch.no_grad():
         hm = output['hm'].sigmoid_()
-        # cv2.imshow('', hm[0].cpu().numpy().transpose(1,2,0))
-        # cv2.waitKey()
-        # ang = output['ang'].relu_()
         ang = output['ang']
         ab = output['ab']
         reg = output['reg']
-        # mask = output['mask']
-        # cv2.imshow('', mask[0].cpu().numpy().transpose(1,2,0))
-        # cv2.waitKey()
+
         torch.cuda.synchronize()
 
         dets = ctdet_decode(hm, ab, ang, reg=reg, K=100)  # K 是最多保留几个目标
@@ -211,26 +191,27 @@ def merge_outputs(detections):
 
 
 def predict():
+    total_time = 0
     model = DlaNet(34)
     device = torch.device('cuda')
-    model.load_state_dict(torch.load('./results/train/FDDB-iou-15-ab-mask1/best.pth'))
+    model.load_state_dict(torch.load('./best.pth'))
     model.eval()
     model.cuda()
 
-    # data_coco = coco.COCO('./data/random_divide/annotations/test.json')
-    data_coco = coco.COCO('./data/FDDB/FDDB_coco/ellipse/fddb_test.json')
+    data_coco = coco.COCO('../data/GED/annotations/train.json')
+    # data_coco = coco.COCO('../data/FDDB/FDDB_coco/ellipse/fddb_test.json')
 
     imgs_id = data_coco.getImgIds()
     for index in imgs_id:
         time_beg = time.time()
         file_name = data_coco.loadImgs(ids=[index])[0]['file_name']
-        # image_name = os.path.join('./data/random_divide/images', file_name)
-        image_name = os.path.join('./data/FDDB', file_name)
+        image_name = os.path.join('../data/GED/images', file_name)
+        # image_name = os.path.join('../data/FDDB', file_name)
 
         print(image_name)
         image = cv2.imread(image_name)
         img = image
-        # image = get_edge(image, 1)
+        image = get_edge(image, 1)
         images, meta = pre_process(image)
 
         images = images.to(device)
@@ -251,70 +232,64 @@ def predict():
         img = draw(img, res)
 
         time_end = time.time()
+        total_time += (time_end-time_beg)
         print('time:', time_end-time_beg)
 
-        # ann_ids = data_coco.getAnnIds(imgIds=[index])
-        # anns = data_coco.loadAnns(ids=ann_ids)
+        ann_ids = data_coco.getAnnIds(imgIds=[index])
+        anns = data_coco.loadAnns(ids=ann_ids)
+
         # for ann in anns:
         #     bbox = ann['bbox']
-        #     print('gt:', bbox)
-        #     # print('gt:', (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), bbox[4])
+        #
+        #     print('gt:', (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), bbox[4])
         #     cv2.ellipse(img, (int(bbox[0]), int(bbox[1])),
         #                 (int(bbox[2]), int(bbox[3])),
-        #                 int(bbox[4]), 0, 360, (255, 255, 0), 3)
-        #
+        #                 int(bbox[4]), 0, 360, (0, 255, 0), 3)
+
         #     # cv2.ellipse(img, (int(bbox[0]), int(bbox[1])),
         #     #             (int(bbox[3]), int(bbox[4])),
         #     #             int(bbox[2]), 0, 360, (0, 0, 255), 3)   # FDDB
 
-        save_path = os.path.join('./results/predict', file_name.split('/')[-1])
+        save_path = os.path.join('../ElDet/results/predict', file_name.split('/')[-1])
         cv2.imwrite(save_path, img)
+        print(total_time)
 
 
-def predict_once():
-    model = DlaNet(34)
-    device = torch.device('cuda')
-    model.load_state_dict(torch.load('./results/train/iou-15-ab-mask/best.pth'))
-    model.eval()
-    model.cuda()
+def predict_once(input_path, file_name, model, device=torch.device("cuda"), thresh=0.9):
+    img = cv2.imread(os.path.join(input_path, file_name))
+    images, meta = pre_process(img)
 
-    data_path = './data/test'
-    image_name = os.listdir(data_path)
-
-    for name in image_name:
-        time_beg = time.time()
-        image_name = os.path.join(data_path, name)
-
-        print(image_name)
-        image = cv2.imread(image_name)
-        img = image
-        # image = get_edge(image, 1)
-        images, meta = pre_process(image)
-
-        images = images.to(device)
+    images = images.to(device)
+    with torch.no_grad():
         output = model(images)
-        dets = process(output)
+    dets = process(output)
 
-        dets = post_process(dets, meta)
-        ret = merge_outputs(dets)
+    dets = post_process(dets, meta)
+    ret = merge_outputs(dets)
 
-        res = np.empty([1, 7])
-        for i, c in ret.items():
-            tmp_s = ret[i][ret[i][:, 5] > 0.3]
-            tmp_c = np.ones(len(tmp_s)) * (i + 1)
-            tmp = np.c_[tmp_c, tmp_s]
-            res = np.append(res, tmp, axis=0)
-        res = np.delete(res, 0, 0)
-        res = res.tolist()
+    res = np.empty([1, 7])
+    for i, c in ret.items():
+        tmp_s = ret[i][ret[i][:, 5] > thresh]
+        tmp_c = np.ones(len(tmp_s)) * (i + 1)
+        tmp = np.c_[tmp_c, tmp_s]
+        res = np.append(res, tmp, axis=0)
+    res = np.delete(res, 0, 0)
+    res = res.tolist()
+
+    if len(res) != 0:
         img = draw(img, res)
-
-        time_end = time.time()
-        print('time:', time_end-time_beg)
-
-        save_path = os.path.join('./results/test', name.split('/')[-1])
+        save_path = os.path.join('../ElDet/results/predict', file_name.split()[-1])
         cv2.imwrite(save_path, img)
 
 
 if __name__ == '__main__':
     # predict()
-    predict_once()
+
+    path = '../data/temp'
+    model = DlaNet(34)
+    device = torch.device('cuda')
+    model.load_state_dict(torch.load('./best.pth'))
+    model.eval()
+    model.to(device)
+    predict_once(path, '1.png', model, device=device, thresh=0.1)
+

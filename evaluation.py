@@ -4,6 +4,7 @@ import time
 import torch
 import numpy as np
 from backbone.dlanet_dcn import DlaNet
+from backbone.dlanet_dcn import MyNet
 from predict import pre_process, ctdet_decode, post_process, merge_outputs
 import pycocotools.coco as coco
 from predict import process
@@ -143,7 +144,7 @@ def evaluation(model, device, iou_thresh=0.5, theta_thresh=10):
     model.eval()
     model.cuda()
 
-    data_coco = coco.COCO('./data/random_divide/annotations/test.json')
+    data_coco = coco.COCO('../data/GED/annotations/test.json')
     # data_coco = coco.COCO('./data/FDDB/FDDB_coco/ellipse/fddb_test.json')
     imgs_id = data_coco.getImgIds()
 
@@ -152,7 +153,7 @@ def evaluation(model, device, iou_thresh=0.5, theta_thresh=10):
     tps = []
     for index in imgs_id:
         file_name = data_coco.loadImgs(ids=[index])[0]['file_name']
-        image_name = os.path.join('./data/random_divide/images', file_name)
+        image_name = os.path.join('../data/GED/images', file_name)
         # image_name = os.path.join('./data/FDDB', file_name)
         ann_ids = data_coco.getAnnIds(imgIds=[index])
         anns = data_coco.loadAnns(ids=ann_ids)
@@ -194,7 +195,7 @@ def evaluation(model, device, iou_thresh=0.5, theta_thresh=10):
     # AP_theta
     for index in imgs_id:
         file_name = data_coco.loadImgs(ids=[index])[0]['file_name']
-        image_name = os.path.join('./data/random_divide/images', file_name)
+        image_name = os.path.join('../data/GED/images', file_name)
         # image_name = os.path.join('./data/FDDB', file_name)
         ann_ids = data_coco.getAnnIds(imgIds=[index])
         anns = data_coco.loadAnns(ids=ann_ids)
@@ -234,9 +235,10 @@ def evaluation(model, device, iou_thresh=0.5, theta_thresh=10):
 
 
 if __name__ == '__main__':
-    model = DlaNet(34)
+    # model = DlaNet(34)
+    model = MyNet(34)
     device = torch.device('cuda')
-    model.load_state_dict(torch.load('./results/train/temp/last.pth'))
+    model.load_state_dict(torch.load('./results/train/边缘融合/14/last.pth'))
 
     evaluation(model, device, iou_thresh=0.5, theta_thresh=10)
     evaluation(model, device, iou_thresh=0.75, theta_thresh=10)

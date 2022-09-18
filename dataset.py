@@ -10,8 +10,6 @@ import pycocotools.coco as coco
 class ctDataset(data.Dataset):
     num_classes = 1
     default_resolution = [512, 512]
-    mean = np.array([0.5194416012442385, 0.5378052387430711, 0.533462090585746], dtype=np.float32).reshape(1, 1, 3)
-    std = np.array([0.3001546018824507, 0.28620901391179554, 0.3014112676161966], dtype=np.float32).reshape(1, 1, 3)
 
     def __init__(self, data_dir='./data', split='train'):
         self.data_dir = data_dir
@@ -28,13 +26,6 @@ class ctDataset(data.Dataset):
         self.class_name = ['obj']
         self._valid_ids = [1]
         self.cat_ids = {v: i for i, v in enumerate(self._valid_ids)}
-        self.voc_color = [(v // 32 * 64 + 64, (v // 8) % 4 * 64, v % 8 * 32) for v in range(1, self.num_classes + 1)]
-        self._data_rng = np.random.RandomState(123)
-        self._eig_val = np.array([0.2141788, 0.01817699, 0.00341571], dtype=np.float32)
-        self._eig_vec = np.array([
-            [-0.58752847, -0.69563484, 0.41340352],
-            [-0.5832747, 0.00994535, -0.81221408],
-            [-0.56089297, 0.71832671, 0.41158938]], dtype=np.float32)
 
         self.split = split
         self.coco = coco.COCO(self.annot_path)
@@ -68,13 +59,12 @@ class ctDataset(data.Dataset):
         inp = cv2.warpAffine(img, trans_input, (input_w, input_h), flags=cv2.INTER_LINEAR)
 
         # Augment
-        inp = grayscale(inp, 0.5)
-        inp = get_edge(inp, prob=0.5, method='Laplacian')
+        # inp = grayscale(inp, 0.5)
+        inp = get_edge(inp, prob=1)
 
         inp = (inp.astype(np.float32) / 255.)
 
         # 归一化
-        inp = (inp - self.mean) / self.std
         inp = inp.transpose(2, 0, 1)
 
         down_ratio = 4
@@ -122,7 +112,6 @@ class ctDataset(data.Dataset):
                 cv2.ellipse(mask[cls_id], (int(ct[0]), int(ct[1])), (int(ab[k][0]), int(ab[k][1])), int(ang[k][0] - 90),
                             0, 360, 1, -1)
 
-
         # inp: 512*512 input | hm: heatmap class | reg_mask: obj data mask | ind: center pixel index
         # wh: width & height | ang: angle
         ret = {'input': inp, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'ab': ab, 'ang': ang, 'mask': mask}
@@ -132,20 +121,27 @@ class ctDataset(data.Dataset):
         return ret
 
 
-def get_edge(img, prob=0.5, method='Laplacian'):
+def get_edge(img, prob=0.5):
     if random.randint(0, 9) in range(0, int(10 * prob)):
+        img_b = img[:, :, 0]
+        img_g = img[:, :, 1]
+        img_r = img[:, :, 2]
+
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img = cv2.GaussianBlur(img, (5, 5), 0)
-        if method == 'Laplacian':
-            img = cv2.Laplacian(img, -1, ksize=5)
-        if method == 'Canny':
-            img = cv2.Canny(img)
-        if method == 'Sobel':
-            img = cv2.Sobel(img, -1, 0, 0)
-        if method == 'AdaptiveThreshold':
-            img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 5, 2)
 
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        img_1 = cv2.Laplacian(img, -1, ksize=5)
+        img_1 = cv2.normalize(img_1, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        img_2 = cv2.Canny(img, 50, 150)
+        img_2 = cv2.normalize(img_2, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        img_3 = 0.5 * cv2.Sobel(img, -1, 0, 1, 5) + 0.5 * cv2.Sobel(img, -1, 1, 0, 5)
+        img_3 = cv2.normalize(img_3, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+        img_4 = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 5, 2)
+        img_4 = cv2.normalize(img_4, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+
+        img = np.stack([img_b, img_g, img_r, img_1, img_2, img_3, img_4], axis=2)
+        img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+
     return img
 
 

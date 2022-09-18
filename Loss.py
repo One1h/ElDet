@@ -15,7 +15,7 @@ def _neg_loss(pred, gt):
   '''
     pos_inds = gt.eq(1).float()
     neg_inds = gt.lt(1).float()
-    neg_weights = torch.pow(1 - gt, 4)
+    neg_weights = torch.pow(1 - gt, 4) # 4
     loss = 0
     pos_loss = torch.log(pred) * torch.pow(1 - pred, 2) * pos_inds
     neg_loss = torch.log(1 - pred) * torch.pow(pred, 2) * neg_weights * neg_inds
@@ -298,6 +298,15 @@ class MaskLoss(nn.Module):
         loss = F.binary_cross_entropy_with_logits(pred, target, reduction='mean')
         return loss
 
+class WeightLoss(nn.Module):
+    def __init__(self):
+        super(WeightLoss, self).__init__()
+
+    def forward(self, pred):
+        target = torch.tensor(np.array([0.4, 0.3, 0.2, 0.1]*2, dtype=np.float32)).cuda()
+        target = target.reshape((-1,4,1,1))
+        loss = F.smooth_l1_loss(pred, target, reduction='sum')
+        return loss
 
 class CtdetLoss(torch.nn.Module):
     def __init__(self, loss_weight):
@@ -344,6 +353,9 @@ class CtdetLoss(torch.nn.Module):
 
         if mask_weight > 0:
             mask_loss += self.crit_mask(pred_tensor['mask'], target_tensor['mask'])
+            
+        # self.weight_loss = WeightLoss()
+        # weight_loss = self.weight_loss(w)
 
         return hm_weight * hm_loss + ab_weight * ab_loss + \
                ang_weight * ang_loss + reg_weight * off_loss + \

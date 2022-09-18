@@ -3,7 +3,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 import math
 import logging
 import numpy as np
@@ -13,20 +12,15 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
-from dcn.modules.deform_conv import ModulatedDeformConvFunction as DCN
+
 from DCNv2.dcn_v2 import DCN
 
 BN_MOMENTUM = 0.1
 logger = logging.getLogger(__name__)
 
+
 def get_model_url(data='imagenet', name='dla34', hash='ba72cf86'):
     return join('http://dl.yf.io/dla/models', data, '{}-{}.pth'.format(name, hash))
-
-
-def conv3x3(in_planes, out_planes, stride=1):
-    "3x3 convolution with padding"
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
-                     padding=1, bias=False)
 
 
 class BasicBlock(nn.Module):
@@ -228,6 +222,7 @@ class DLA(nn.Module):
         super(DLA, self).__init__()
         self.channels = channels
         self.num_classes = num_classes
+        # 输入图片尺寸
         self.base_layer = nn.Sequential(
             nn.Conv2d(3, channels[0], kernel_size=7, stride=1,
                       padding=3, bias=False),
@@ -315,6 +310,7 @@ def dla34(pretrained=True, **kwargs):  # DLA-34
         model.load_pretrained_model(data='imagenet', name='dla34', hash='ba72cf86')
     return model
 
+
 class Identity(nn.Module):
 
     def __init__(self):
@@ -350,7 +346,7 @@ class DeformConv(nn.Module):
             nn.BatchNorm2d(cho, momentum=BN_MOMENTUM),
             nn.ReLU(inplace=True)
         )
-        self.conv = DCN(chi, cho, kernel_size=(3,3), stride=1, padding=1, dilation=1, deformable_groups=1)
+        self.conv = DCN(chi, cho, kernel_size=(3, 3), stride=1, padding=1, dilation=1, deformable_groups=1)
 
     def forward(self, x):
         x = self.conv(x)
@@ -364,11 +360,11 @@ class IDAUp(nn.Module):
         super(IDAUp, self).__init__()
         for i in range(1, len(channels)):
             c = channels[i]
-            f = int(up_f[i])  
+            f = int(up_f[i])
             proj = DeformConv(c, o)
             node = DeformConv(o, o)
-     
-            up = nn.ConvTranspose2d(o, o, f * 2, stride=f, 
+
+            up = nn.ConvTranspose2d(o, o, f * 2, stride=f,
                                     padding=f // 2, output_padding=0,
                                     groups=o, bias=False)
             fill_up_weights(up)
@@ -376,8 +372,7 @@ class IDAUp(nn.Module):
             setattr(self, 'proj_' + str(i), proj)
             setattr(self, 'up_' + str(i), up)
             setattr(self, 'node_' + str(i), node)
-                 
-        
+
     def forward(self, layers, startp, endp):
         for i in range(startp + 1, endp):
             upsample = getattr(self, 'up_' + str(i - startp))
@@ -385,7 +380,6 @@ class IDAUp(nn.Module):
             layers[i] = upsample(project(layers[i]))
             node = getattr(self, 'node_' + str(i - startp))
             layers[i] = node(layers[i] + layers[i - 1])
-
 
 
 class DLAUp(nn.Module):
@@ -406,10 +400,10 @@ class DLAUp(nn.Module):
             in_channels[j + 1:] = [channels[j] for _ in channels[j + 1:]]
 
     def forward(self, layers):
-        out = [layers[-1]] # start with 32
+        out = [layers[-1]]  # start with 32
         for i in range(len(layers) - self.startp - 1):
             ida = getattr(self, 'ida_{}'.format(i))
-            ida(layers, len(layers) -i - 2, len(layers))
+            ida(layers, len(layers) - i - 2, len(layers))
             out.insert(0, layers[-1])
         return out
 
@@ -419,7 +413,7 @@ class Interpolate(nn.Module):
         super(Interpolate, self).__init__()
         self.scale = scale
         self.mode = mode
-        
+
     def forward(self, x):
         x = F.interpolate(x, scale_factor=self.scale, mode=self.mode, align_corners=False)
         return x
@@ -484,9 +478,6 @@ class Creat_DlaNet(nn.Module):
         for head in self.heads:
             z[head] = self.__getattr__(head)(y[-1])
         return z
-        
-        
-
 
 
 def DlaNet(num_layers=34, heads={'hm': 1, 'ab': 2, 'ang': 1, 'reg': 2, 'mask': 1}, head_conv=256):
@@ -499,8 +490,164 @@ def DlaNet(num_layers=34, heads={'hm': 1, 'ab': 2, 'ang': 1, 'reg': 2, 'mask': 1
     return model
 
 
+class ResBlock(nn.Module):
+    def __init__(self, inchannel, outchannel, stride=1):
+        super(ResBlock, self).__init__()
+        self.left = nn.Sequential(
+            nn.Conv2d(inchannel, outchannel, kernel_size=3, stride=stride, padding=1, bias=False),
+            nn.BatchNorm2d(outchannel),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(outchannel, outchannel, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(outchannel)
+        )
+        self.shortcut = nn.Sequential()
+        if stride != 1 or inchannel != outchannel:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(inchannel, outchannel, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(outchannel)
+            )
+
+    def forward(self, x):
+        out = self.left(x)
+        out = out + self.shortcut(x)
+        out = F.relu(out)
+
+        return out
 
 
+class ResNet(nn.Module):
+    def __init__(self, ResBlock, num_classes=4):
+        super(ResNet, self).__init__()
+        self.inchannel = 64
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(7, 64, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU()
+        )
+        self.layer1 = self.make_layer(ResBlock, 64, 2, stride=1)
+        self.maxpool1 = nn.AdaptiveMaxPool2d(256)
+        self.layer2 = self.make_layer(ResBlock, 128, 2, stride=2)
+        self.maxpool2 = nn.AdaptiveMaxPool2d(64)
+        self.layer3 = self.make_layer(ResBlock, 256, 2, stride=2)
+        self.maxpool3 = nn.AdaptiveMaxPool2d(16)
+        self.layer4 = self.make_layer(ResBlock, 512, 2, stride=2)
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Linear(512, num_classes)
+        self.Softmax = nn.Softmax(dim=1)
+
+    def make_layer(self, block, channels, num_blocks, stride):
+        strides = [stride] + [1] * (num_blocks - 1)
+        layers = []
+        for stride in strides:
+            layers.append(block(self.inchannel, channels, stride))
+            self.inchannel = channels
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        out = self.conv1(x)
+        out = self.layer1(out)
+        out = self.maxpool1(out)
+        out = self.layer2(out)
+        out = self.maxpool2(out)
+        out = self.layer3(out)
+        out = self.maxpool3(out)
+        out = self.layer4(out)
+        # out = F.avg_pool2d(out, 4)
+        out = self.avgpool(out)
+        out = out.view(out.size(0), -1)
+        out = self.fc(out)
+        out = self.Softmax(out)
+        return out
 
 
+class Creat_MyNet(nn.Module):
+    def __init__(self, base_name, heads, pretrained, down_ratio, final_kernel,
+                 last_level, head_conv, out_channel=0):
+        super(Creat_MyNet, self).__init__()
 
+        self.first_level = int(np.log2(down_ratio))
+        self.last_level = last_level
+
+        # globals()[base_name](pretrained=pretrained) 意思是在全局寻找一个叫 base_name 的函数或者类，
+        # 他的参数 pretrained 为 true
+        self.base = globals()[base_name](pretrained=pretrained)
+        channels = self.base.channels
+        scales = [2 ** i for i in range(len(channels[self.first_level:]))]
+        self.dla_up = DLAUp(self.first_level, channels[self.first_level:], scales)
+
+        if out_channel == 0:
+            out_channel = channels[self.first_level]
+
+        self.ida_up = IDAUp(out_channel, channels[self.first_level:self.last_level],
+                            [2 ** i for i in range(self.last_level - self.first_level)])
+
+        self.heads = heads
+        for head in self.heads:
+            classes = self.heads[head]
+            if head_conv > 0:
+                fc = nn.Sequential(
+                    nn.Conv2d(channels[self.first_level], head_conv,
+                              kernel_size=3, padding=1, bias=True),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(head_conv, classes,
+                              kernel_size=final_kernel, stride=1,
+                              padding=final_kernel // 2, bias=True))
+                if 'hm' in head:
+                    fc[-1].bias.data.fill_(-2.19)
+                else:
+                    fill_fc_weights(fc)
+            else:
+                fc = nn.Conv2d(channels[self.first_level], classes,
+                               kernel_size=final_kernel, stride=1,
+                               padding=final_kernel // 2, bias=True)
+                if 'hm' in head:
+                    fc.bias.data.fill_(-2.19)
+                else:
+                    fill_fc_weights(fc)
+            self.__setattr__(head, fc)
+
+        self.weights = ResNet(ResBlock)
+
+    def forward(self, x, train=False):
+        rgb = x[:, :3, :, :]
+        edge = x[:, 3:, :, :]
+        if train:
+            w = self.weights(x)
+
+            # 概率选取
+            import random
+            prob = random.random()
+            w = w.reshape((-1, 4, 1, 1))
+            print(w)
+            if prob > 0.5:
+                x = edge * w
+                x = x.sum(dim=1)
+                x = torch.stack([x, x, x], dim=1)
+            else:
+                x = rgb
+
+        else:
+            x = rgb
+
+        x = self.base(x)
+        x = self.dla_up(x)
+
+        y = []
+        for i in range(self.last_level - self.first_level):
+            y.append(x[i].clone())
+        self.ida_up(y, 0, len(y))
+
+        z = {}
+        for head in self.heads:
+            z[head] = self.__getattr__(head)(y[-1])
+        return z
+
+
+def MyNet(num_layers=34, heads={'hm': 1, 'ab': 2, 'ang': 1, 'reg': 2, 'mask': 1}, head_conv=256):
+    model = Creat_MyNet('dla{}'.format(num_layers), heads,
+                        pretrained=True,
+                        down_ratio=4,
+                        final_kernel=1,
+                        last_level=5,
+                        head_conv=head_conv)
+    return model

@@ -55,6 +55,14 @@ _The dataset download link will be released soon._
 
 # 4. Citataion
 ```
+@inproceedings{liao2020speech2video,
+  title={ElDet: An Anchor-free General Ellipse Object Detector},
+  author={Wang, Tian hao and Lu, Changsheng and Shao, Ming and Yuan, Xiaohui and Xia, Siyu},
+  booktitle={Proceedings of the Asian Conference on Computer Vision},
+  year={2022}
+}
+```
+```
 @article{lu2019arc,
   title={Arc-Support Line Segments Revisited: An Efficient High-Quality Ellipse Detection},
   author={Lu, Changsheng and Xia, Siyu and Shao, Ming and Fu, Yun},

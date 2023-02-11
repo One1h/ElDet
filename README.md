@@ -26,7 +26,7 @@ We use [VIA](https://www.robots.ox.ac.uk/~vgg/software/via/) to make the labels,
 *data_process.py* is a routine for format transformation.
 
 ### 2.2 Data format
-We adapt **COCO** format and **bbox = \[cx, cy, a, b, θ]**, where *cx, cy* are center point coordinates, *a, b* are major axis and minor axis of ellipse, *θ* ∈(-90, 90] is rotation angle of ellipse.
+We adapt **COCO** format and **bbox = \[cx, cy, a, b, θ]**, where *cx, cy* are center point coordinates, *a, b* are major axis and minor axis of ellipse, *θ* ∈[-90, 90） is rotation angle of ellipse.
 
 ### Data folder format
 ```
@@ -43,7 +43,7 @@ We adapt **COCO** format and **bbox = \[cx, cy, a, b, θ]**, where *cx, cy* are 
 
 ## 3. Detection Results
 ### 3.1. GED dataset
-_The dataset download link will be released soon._
+**GED dataset download link ([Baidu Netdisk](https://pan.baidu.com/s/1HZ8buHahd-jx39hTklf-7A?pwd=ezgs ))**
 <div align=center>
 <img src="/imgs/GED.jpg" width=500>
 </div>

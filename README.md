@@ -43,7 +43,7 @@ We adapt **COCO** format and **bbox = \[cx, cy, a, b, θ]**, where *cx, cy* are 
 
 ## 3. Detection Results
 ### 3.1. GED dataset
-**GED dataset download link ([Baidu Netdisk](https://pan.baidu.com/s/1HZ8buHahd-jx39hTklf-7A?pwd=ezgs ))**
+**GED dataset download link ([Baidu Netdisk](https://pan.baidu.com/s/1HZ8buHahd-jx39hTklf-7A?pwd=ezgs )) ([Google Netdisk]([https://pan.baidu.com/s/1HZ8buHahd-jx39hTklf-7A?pwd=ezgs ](https://drive.google.com/file/d/11eKAh_8la2Om2xeibhYv6DXgLVCF2bhk/view?usp=sharing)))**
 <div align=center>
 <img src="/imgs/GED.jpg" width=500>
 </div>
